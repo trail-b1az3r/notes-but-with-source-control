@@ -6,7 +6,10 @@ Apple Notes meets GitHub. A native SwiftUI iPhone app (iOS 17+) for local-first 
 
 ## Releasing (GitHub Actions)
 
-Actions → **Release** → *Run workflow*. It will:
+The bundle is always named `nbwsc-vX.Y.Z.ipa` (plus a `.sha256`). Two ways to get it:
+
+- **Automatic bundle on release:** publish a release on GitHub (Releases → Draft a new release, with a tag like `v1.2.0`) and the workflow builds that tag and attaches the bundle to your release.
+- **One-click release:** Actions → **Release** → *Run workflow*. It will:
 
 1. compute the next version from the latest `vX.Y.Z` tag (patch/minor/major, or type an explicit version) and refuse to reuse a tag,
 2. run the unit tests,
