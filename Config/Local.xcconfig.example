@@ -1,0 +1,4 @@
+// Copy to Config/Local.xcconfig (git-ignored) and fill in.
+APP_BUNDLE_ID = com.yourname.notes
+GITHUB_CLIENT_ID = Iv1.xxxxxxxxxxxxxxxx   // from your GitHub OAuth App (device flow enabled)
+DEVELOPMENT_TEAM = ABCDE12345             // your Apple team ID, for running on a device

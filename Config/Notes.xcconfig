@@ -1,0 +1,12 @@
+// Shared build configuration. Contains no secrets.
+// Put local overrides (your GitHub OAuth client ID, bundle ID, team) in Config/Local.xcconfig,
+// which is git-ignored. See Config/Local.xcconfig.example.
+
+APP_BUNDLE_ID = app.notes.Notes
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+// OAuth client IDs are public identifiers (not secrets), but are left blank here so each fork uses its own app.
+GITHUB_CLIENT_ID =
+DEVELOPMENT_TEAM =
+
+#include? "Local.xcconfig"
