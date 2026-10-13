@@ -116,7 +116,7 @@ struct CommitVersionView: View {
             do {
                 let f = try await app.client.file(owner: o, name: r, path: p, ref: commit.sha)
                 content = f.text ?? ""
-            } catch { error = AppModel.message(for: error) }
+            } catch { self.error = AppModel.message(for: error) }
         }
     }
 

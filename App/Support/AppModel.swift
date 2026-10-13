@@ -5,7 +5,7 @@ import UIKit
 import NotesCore
 
 @MainActor @Observable final class AppModel {
-    static let tokenAccount = "github.token"
+    nonisolated static let tokenAccount = "github.token"
 
     var user: GHUser?
     var isSignedIn: Bool
