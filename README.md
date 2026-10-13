@@ -6,7 +6,10 @@ Apple Notes meets GitHub. A native SwiftUI iPhone app (iOS 17+) for local-first 
 
 ## Releasing (GitHub Actions)
 
-Actions → **Release** → *Run workflow*. It will:
+The bundle is always named `nbwsc-vX.Y.Z.ipa` (plus a `.sha256`). Two ways to get it:
+
+- **Automatic bundle on release:** publish a release on GitHub (Releases → Draft a new release, with a tag like `v1.2.0`) and the workflow builds that tag and attaches the bundle to your release.
+- **One-click release:** Actions → **Release** → *Run workflow*. It will:
 
 1. compute the next version from the latest `vX.Y.Z` tag (patch/minor/major, or type an explicit version) and refuse to reuse a tag,
 2. run the unit tests,
@@ -42,6 +45,8 @@ Run on an iPhone: plug it in, enable Developer Mode, pick it as the destination,
 Tests: `swift test --package-path Packages/NotesCore` (no GitHub account needed; all HTTP is mocked).
 
 ## GitHub sign-in setup
+
+Quickest: `scripts/setup-github.sh` (see below / docs).
 
 See [docs/GITHUB_SETUP.md](docs/GITHUB_SETUP.md). Short version: register an OAuth App, tick **Enable Device Flow**, put its client ID in `Local.xcconfig`. No secret is ever in the app. Without a client ID the app works fully offline and says so in Settings.
 

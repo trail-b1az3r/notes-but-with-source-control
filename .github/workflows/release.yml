@@ -1,11 +1,13 @@
 name: Release
 
-# Run manually from the Actions tab. The workflow:
-#   1. computes the next version (or uses the one you give it) and refuses to reuse an existing tag,
-#   2. runs the unit tests,
-#   3. archives the app and packages an .ipa (signed if signing secrets exist, otherwise unsigned),
-#   4. creates the git tag and the GitHub Release, with release notes and the .ipa attached.
+# Two ways to use it; the bundle is always named nbwsc-vX.Y.Z.ipa:
+#   A. Run manually from the Actions tab: computes the next version (or uses the one you give it),
+#      refuses to reuse a tag, then creates the git tag and the GitHub Release with notes + bundle.
+#   B. Publish a release yourself on GitHub: the workflow builds that tag and attaches the bundle
+#      to the existing release automatically.
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       bump:
@@ -46,10 +48,14 @@ jobs:
         env:
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_BUMP: ${{ inputs.bump }}
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
           git fetch --tags --force
-          if [ -n "$INPUT_VERSION" ]; then
+          if [ "$EVENT_NAME" = "release" ]; then
+            VERSION="${RELEASE_TAG#v}"
+          elif [ -n "$INPUT_VERSION" ]; then
             VERSION="${INPUT_VERSION#v}"
           else
             LATEST=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1 || true)
@@ -67,13 +73,19 @@ jobs:
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Invalid version '$VERSION'. Use MAJOR.MINOR.PATCH with dots, e.g. 0.1.0 (or leave the version field empty to use the bump type)."; exit 1
           fi
-          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+          if [ "$EVENT_NAME" != "release" ] && git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
             echo "::error::Tag v$VERSION already exists"; exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=${RELEASE_TAG:-v$VERSION}" >> "$GITHUB_OUTPUT"
           echo "previous=${LATEST:-}" >> "$GITHUB_OUTPUT"
           echo "Releasing v$VERSION"
+
+      - name: Check GitHub setup
+        run: |
+          if [ -z "$GITHUB_CLIENT_ID_VALUE" ]; then
+            echo "::warning title=GitHub sign-in not configured::NOTES_GITHUB_CLIENT_ID is not set, so this build has no GitHub sign-in. Run scripts/setup-github.sh (see docs/GITHUB_SETUP.md)."
+          fi
 
       - name: Toolchain
         run: xcodebuild -version && swift --version
@@ -108,8 +120,8 @@ jobs:
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
           rm -rf build/ipa && mkdir -p build/ipa/Payload
           cp -R build/Notes.xcarchive/Products/Applications/Notes.app build/ipa/Payload/
-          (cd build/ipa && zip -qry "../Notes-v$VERSION-unsigned.ipa" Payload)
-          echo "IPA=build/Notes-v$VERSION-unsigned.ipa" >> "$GITHUB_ENV"
+          (cd build/ipa && zip -qry "../nbwsc-v$VERSION-unsigned.ipa" Payload)
+          echo "IPA=build/nbwsc-v$VERSION-unsigned.ipa" >> "$GITHUB_ENV"
 
       # ---------- Signed build (when IOS_CERT_P12_BASE64 + IOS_PROFILE_BASE64 are set) ----------
       - name: Import certificate and provisioning profile
@@ -164,8 +176,8 @@ jobs:
           PLIST
           xcodebuild -exportArchive -archivePath build/Notes.xcarchive \
             -exportOptionsPlist build/ExportOptions.plist -exportPath build/export
-          cp build/export/*.ipa "build/Notes-v$VERSION.ipa"
-          echo "IPA=build/Notes-v$VERSION.ipa" >> "$GITHUB_ENV"
+          cp build/export/*.ipa "build/nbwsc-v$VERSION.ipa"
+          echo "IPA=build/nbwsc-v$VERSION.ipa" >> "$GITHUB_ENV"
 
       - name: Write release notes
         env:
@@ -174,7 +186,7 @@ jobs:
         run: |
           set -euo pipefail
           {
-            echo "## Notes: v$VERSION"
+            echo "## nbwsc v$VERSION"
             echo
             if [ "$SIGNED" = "true" ]; then
               echo "Signed build. Install on a device included in the provisioning profile."
@@ -194,19 +206,32 @@ jobs:
             echo
           } > build/notes.md
 
+      - name: Checksum
+        run: shasum -a 256 "$IPA" | sed "s#build/##" > "$IPA.sha256"
+
       - name: Create tag and GitHub release
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.v.outputs.tag }}
           PRERELEASE: ${{ inputs.prerelease }}
         run: |
           set -euo pipefail
-          ARGS=(--target "$GITHUB_SHA" --title "Notes: $TAG" --notes-file build/notes.md --generate-notes)
+          ARGS=(--target "$GITHUB_SHA" --title "nbwsc $TAG" --notes-file build/notes.md --generate-notes)
           if [ "$PRERELEASE" = "true" ]; then ARGS+=(--prerelease); fi
-          gh release create "$TAG" "$IPA" "${ARGS[@]}"
+          gh release create "$TAG" "$IPA" "$IPA.sha256" "${ARGS[@]}"
+
+      - name: Attach bundle to published release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.v.outputs.tag }}
+        run: gh release upload "$TAG" "$IPA" "$IPA.sha256" --clobber
 
       - name: Upload archive as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Notes-${{ steps.v.outputs.tag }}-ipa
-          path: build/*.ipa
+          name: nbwsc-${{ steps.v.outputs.tag }}-ipa
+          path: |
+            build/*.ipa
+            build/*.sha256
