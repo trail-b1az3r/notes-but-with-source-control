@@ -12,3 +12,15 @@ Notes: uses GitHub's **OAuth device flow**: the supported flow for apps that can
 Scopes requested: `public_repo` (public repositories only) or `repo` (adds private repositories; GitHub offers no narrower scope for OAuth Apps). Users choose in Settings before signing in. Organizations with OAuth app restrictions must approve the app.
 
 Sign out deletes the local token. To revoke the grant on GitHub, use github.com/settings/applications.
+
+## Automated setup
+
+`scripts/setup-github.sh` (needs the GitHub CLI, signed in with admin rights on the repo) does everything except the one step GitHub only allows in the browser:
+
+```sh
+scripts/setup-github.sh                         # opens the pre-filled OAuth App page; tick "Enable Device Flow"
+scripts/setup-github.sh --client-id Iv1.xxxx    # stores NOTES_GITHUB_CLIENT_ID so every release bundles sign-in
+scripts/setup-github.sh --cert c.p12 --cert-password PW --profile p.mobileprovision   # optional: signed .ipa
+```
+
+The Release workflow warns if the client ID is missing, and bakes it into the `nbwsc` bundle when present. Client IDs are public identifiers; secrets never enter git.

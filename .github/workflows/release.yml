@@ -81,6 +81,12 @@ jobs:
           echo "previous=${LATEST:-}" >> "$GITHUB_OUTPUT"
           echo "Releasing v$VERSION"
 
+      - name: Check GitHub setup
+        run: |
+          if [ -z "$GITHUB_CLIENT_ID_VALUE" ]; then
+            echo "::warning title=GitHub sign-in not configured::NOTES_GITHUB_CLIENT_ID is not set, so this build has no GitHub sign-in. Run scripts/setup-github.sh (see docs/GITHUB_SETUP.md)."
+          fi
+
       - name: Toolchain
         run: xcodebuild -version && swift --version
 

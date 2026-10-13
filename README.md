@@ -46,6 +46,8 @@ Tests: `swift test --package-path Packages/NotesCore` (no GitHub account needed;
 
 ## GitHub sign-in setup
 
+Quickest: `scripts/setup-github.sh` (see below / docs).
+
 See [docs/GITHUB_SETUP.md](docs/GITHUB_SETUP.md). Short version: register an OAuth App, tick **Enable Device Flow**, put its client ID in `Local.xcconfig`. No secret is ever in the app. Without a client ID the app works fully offline and says so in Settings.
 
 ## Architecture
