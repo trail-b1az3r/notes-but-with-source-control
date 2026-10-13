@@ -65,7 +65,7 @@ jobs:
             fi
           fi
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Invalid version '$VERSION' (expected MAJOR.MINOR.PATCH)"; exit 1
+            echo "::error::Invalid version '$VERSION'. Use MAJOR.MINOR.PATCH with dots, e.g. 0.1.0 (or leave the version field empty to use the bump type)."; exit 1
           fi
           if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
             echo "::error::Tag v$VERSION already exists"; exit 1
