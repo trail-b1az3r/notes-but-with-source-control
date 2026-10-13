@@ -1,0 +1,12 @@
+.DS_Store
+build/
+DerivedData/
+*.xcodeproj
+Config/Info.plist
+Config/Local.xcconfig
+.swiftpm/
+.build/
+*.ipa
+*.xcarchive
+*.p12
+*.mobileprovision
