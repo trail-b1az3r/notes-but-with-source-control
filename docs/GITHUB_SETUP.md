@@ -24,3 +24,7 @@ scripts/setup-github.sh --cert c.p12 --cert-password PW --profile p.mobileprovis
 ```
 
 The Release workflow warns if the client ID is missing, and bakes it into the `nbwsc` bundle when present. Client IDs are public identifiers; secrets never enter git.
+
+## Entering the Client ID inside the app
+
+No rebuild needed: open **Settings** (or the **GitHub** tab), follow the three steps in the "One-time setup" card, and paste the Client ID. It's stored on the device and overrides any ID built into the app.

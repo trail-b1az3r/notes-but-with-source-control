@@ -1,6 +1,6 @@
 # Notes:
 
-Apple Notes meets GitHub. A native SwiftUI iPhone app (iOS 17+) for local-first notes that can be linked to files in GitHub repositories, with real commits, history, diffs, offline editing and conflict resolution.
+Apple Notes meets GitHub. A native SwiftUI iPhone app (iOS 26 and newer; targets iOS 27 automatically once the build machine has the iOS 27 SDK) for local-first notes that can be linked to files in GitHub repositories, with real commits, history, diffs, offline editing and conflict resolution.
 
 > **Status:** the source was written without access to Xcode, so it has **not yet been compiled or run on a device**. The first CI run on a macOS runner is the first real build — see [Status](#status).
 
@@ -32,7 +32,7 @@ The bundle is always named `nbwsc-vX.Y.Z.ipa` (plus a `.sha256`). Two ways to ge
 
 ## Build and run locally
 
-Requires Xcode 15.4+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
+Requires Xcode 26+ (Xcode 27 for the iOS 27 SDK) and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ```sh
 cp Config/Local.xcconfig.example Config/Local.xcconfig   # set GITHUB_CLIENT_ID, APP_BUNDLE_ID, DEVELOPMENT_TEAM

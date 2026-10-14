@@ -12,79 +12,70 @@ struct SettingsView: View {
     @AppStorage(Prefs.templateKey) private var template = ""
     @AppStorage("monospacedEditor") private var mono = false
     @AppStorage("showCounts") private var counts = false
-    @AppStorage("privateAccess") private var privateAccess = true
     @AppStorage("appearance") private var appearance = 0
-    @State private var confirmSignOut = false
     @State private var confirmWipe = false
     @State private var backupURL: URL?
 
     var body: some View {
-        Form {
+        @Bindable var app = app
+        List {
             Section {
-                if app.isSignedIn {
-                    LabeledContent("Account", value: app.user.map { "@\($0.login)" } ?? "Signed in")
-                    Button("Sign Out", role: .destructive) { confirmSignOut = true }
-                } else if app.isSigningIn, let code = app.deviceCode {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Enter this code on GitHub").font(.subheadline)
-                        Text(code.userCode).font(.system(.title, design: .monospaced).bold()).textSelection(.enabled)
-                        Text("Copied to clipboard. Waiting for you to approve…").font(.footnote).foregroundStyle(.secondary)
-                        Link("Open github.com/login/device", destination: code.verificationURI)
-                        Button("Cancel", role: .cancel) { app.cancelSignIn() }
-                    }
-                } else if app.isSigningIn {
-                    ProgressView()
-                } else {
-                    Toggle("Allow private repositories", isOn: $privateAccess)
-                    Button("Sign in with GitHub") { app.signIn(privateAccess: privateAccess) }
-                }
-                if let e = app.signInError { Text(e).foregroundStyle(.red).font(.footnote) }
-            } header: { Text("GitHub") } footer: {
-                Text(privateAccess
-                     ? "Requests the “repo” permission, which GitHub grants as full access to repositories you can access; there is no narrower option for private repositories. Notes: only reads and writes the files you open."
-                     : "Requests “public_repo”: access to public repositories only.")
+                GitHubConnectView()
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
             }
 
             Section {
-                Toggle("Sync automatically", isOn: $autoSync)
-                TextField("Commit message template", text: $template, prompt: Text(Prefs.defaultTemplate))
+                Toggle(isOn: $autoSync) { SettingsLabel("Sync automatically", "arrow.triangle.2.circlepath", .green) }
+                NavigationLink { CommitTemplateView(template: $template) } label: {
+                    SettingsLabel("Commit message", "text.bubble", .blue)
+                }
             } header: { Text("Sync") } footer: {
-                Text("Automatic sync commits after you stop typing, when online. iOS doesn't allow guaranteed background sync, so pending changes upload when the app is open. Placeholders: {{file}} {{title}} {{date}}.")
+                Text(autoSync
+                     ? "Edits are committed to GitHub shortly after you stop typing, when you're online."
+                     : "Edits stay on this device until you commit them from a note's menu or Pending Changes.")
             }
 
             Section("Editor") {
-                Toggle("Monospaced font", isOn: $mono)
-                Toggle("Show word count", isOn: $counts)
-                Picker("Appearance", selection: $appearance) { Text("System").tag(0); Text("Light").tag(1); Text("Dark").tag(2) }
+                Toggle(isOn: $mono) { SettingsLabel("Monospaced font", "textformat", .orange) }
+                Toggle(isOn: $counts) { SettingsLabel("Word count", "number", .teal) }
+                Picker(selection: $appearance) {
+                    Text("System").tag(0); Text("Light").tag(1); Text("Dark").tag(2)
+                } label: { SettingsLabel("Appearance", "circle.lefthalf.filled", .indigo) }
             }
 
             Section {
-                if let url = backupURL { ShareLink(item: url) { Label("Share Backup (ZIP)", systemImage: "square.and.arrow.up") } }
-                Button("Create Backup…", systemImage: "archivebox") { backupURL = makeBackup() }
+                Button { backupURL = makeBackup() } label: { SettingsLabel("Create Backup", "archivebox", .brown) }
+                    .foregroundStyle(.primary)
+                if let url = backupURL {
+                    ShareLink(item: url) { Label("Share Backup (ZIP)", systemImage: "square.and.arrow.up") }
+                }
                 LabeledContent("Notes", value: "\(notes.count)")
                 LabeledContent("Edit revisions", value: "\(revisions.count)")
                 LabeledContent("Size on device", value: ByteCountFormatter.string(fromByteCount: Int64(notes.reduce(0) { $0 + $1.body.utf8.count + ($1.baseContent?.utf8.count ?? 0) }), countStyle: .file))
             } header: { Text("Backup & Storage") } footer: {
-                Text("A backup is a ZIP of every note as a Markdown file, organized by folder or repository path. It includes unsynced edits. It does not include your GitHub credentials.")
+                Text("A backup is a ZIP of every note as a Markdown file, organized by folder or repository. It includes unsynced edits and never your GitHub credentials.")
             }
 
             Section {
-                Button("Delete All Local Data…", role: .destructive) { confirmWipe = true }
-            } header: { Text("Privacy & Security") } footer: {
-                Text("Credentials are stored in the iOS Keychain. Note contents are never logged or sent anywhere except GitHub files you choose to commit. Local-only notes are never uploaded.")
+                DisclosureGroup {
+                    TextField(app.bundledClientID.isEmpty ? "Client ID" : "Using build default", text: $app.customClientID)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .font(.system(.footnote, design: .monospaced))
+                    Text("Overrides the Client ID built into the app. Leave empty to use the default.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } label: { SettingsLabel("GitHub Client ID", "key.horizontal", .gray) }
+                Button(role: .destructive) { confirmWipe = true } label: { SettingsLabel("Delete All Local Data", "trash", .red) }
+                    .foregroundStyle(.red)
+            } header: { Text("Advanced") } footer: {
+                Text("Credentials live in the iOS Keychain. Note contents are never logged and only leave your device when you commit them to GitHub. Local-only notes are never uploaded.")
             }
 
             Section("About") {
                 LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
-                Text("Notes: — Apple Notes meets GitHub.").foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Settings")
-        .confirmationDialog("Sign out of GitHub?", isPresented: $confirmSignOut, titleVisibility: .visible) {
-            Button("Sign Out", role: .destructive) { app.signOut() }
-        } message: {
-            Text("Your notes and unsynced edits stay on this device. Nothing on GitHub is changed. To revoke the app's access entirely, visit github.com/settings/applications.")
-        }
         .confirmationDialog("Delete all local data?", isPresented: $confirmWipe, titleVisibility: .visible) {
             Button("Delete Everything on This Device", role: .destructive) { wipe() }
         } message: {
@@ -105,7 +96,7 @@ struct SettingsView: View {
             used.insert(full)
             zip.add(path: full, data: Data(n.body.utf8))
         }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Notes-Backup-\(Int(Date().timeIntervalSince1970)).zip")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("nbwsc-backup-\(Int(Date().timeIntervalSince1970)).zip")
         return (try? zip.finish().write(to: url, options: .atomic)) != nil ? url : nil
     }
 
@@ -113,5 +104,33 @@ struct SettingsView: View {
         try? context.delete(model: Note.self); try? context.delete(model: Folder.self)
         try? context.delete(model: LocalRevision.self); try? context.delete(model: RepoConnection.self)
         try? context.save()
+    }
+}
+
+struct CommitTemplateView: View {
+    @Binding var template: String
+    var body: some View {
+        Form {
+            Section {
+                TextField(Prefs.defaultTemplate, text: $template).textInputAutocapitalization(.never)
+            } header: { Text("Template") } footer: {
+                Text("Used when a commit message isn't typed by hand.")
+            }
+            Section("Placeholders") {
+                LabeledContent("{{file}}", value: "File name")
+                LabeledContent("{{title}}", value: "Note title")
+                LabeledContent("{{date}}", value: "Date and time")
+            }
+            Section("Example") {
+                Text((template.isEmpty ? Prefs.defaultTemplate : template)
+                    .replacingOccurrences(of: "{{file}}", with: "ideas.md")
+                    .replacingOccurrences(of: "{{title}}", with: "Ideas")
+                    .replacingOccurrences(of: "{{date}}", with: Date.now.formatted(date: .abbreviated, time: .shortened)))
+                    .foregroundStyle(.secondary)
+            }
+            if !template.isEmpty { Section { Button("Reset to Default", role: .destructive) { template = "" } } }
+        }
+        .navigationTitle("Commit Message")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

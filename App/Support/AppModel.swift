@@ -20,8 +20,36 @@ import NotesCore
     private var signInTask: Task<Void, Never>?
     var onReconnect: (() -> Void)?
 
-    var clientID: String { (Bundle.main.object(forInfoDictionaryKey: "GitHubClientID") as? String) ?? "" }
-    var isConfigured: Bool { !clientID.isEmpty && !clientID.hasPrefix("$(") }
+    static let clientIDKey = "githubClientID"
+    /// A Client ID the user entered in the app. Overrides the one baked into the build.
+    var customClientID: String = UserDefaults.standard.string(forKey: AppModel.clientIDKey) ?? "" {
+        didSet { UserDefaults.standard.set(customClientID, forKey: Self.clientIDKey) }
+    }
+
+    var bundledClientID: String {
+        let v = (Bundle.main.object(forInfoDictionaryKey: "GitHubClientID") as? String) ?? ""
+        return v.hasPrefix("$(") ? "" : v.trimmingCharacters(in: .whitespaces)
+    }
+    var clientID: String {
+        let c = customClientID.trimmingCharacters(in: .whitespaces)
+        return c.isEmpty ? bundledClientID : c
+    }
+    var isConfigured: Bool { !clientID.isEmpty }
+
+    /// Client IDs are public identifiers like "Iv1.0123456789abcdef" or "Ov23li...".
+    static func isValidClientID(_ s: String) -> Bool {
+        s.range(of: "^[A-Za-z0-9._-]{8,40}$", options: .regularExpression) != nil
+    }
+
+    @discardableResult func saveClientID(_ input: String) -> Bool {
+        let t = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard Self.isValidClientID(t) else {
+            signInError = "That doesn't look like a GitHub Client ID. Copy it from your OAuth app's page on GitHub."
+            return false
+        }
+        customClientID = t; signInError = nil
+        return true
+    }
 
     init() {
         isSignedIn = Keychain.read(Self.tokenAccount) != nil
