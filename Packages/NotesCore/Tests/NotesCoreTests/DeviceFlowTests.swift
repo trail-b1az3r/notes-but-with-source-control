@@ -41,4 +41,26 @@ final class DeviceFlowTests: XCTestCase {
         let (a, _) = auth([.init(status: 200, body: #"{"error":"device_flow_disabled"}"#)])
         do { _ = try await a.start(scope: "repo"); XCTFail() } catch { XCTAssertEqual(error as? AuthError, .deviceFlowDisabled) }
     }
+
+    /// iOS drops connections while the user is approving in Safari; polling must survive that.
+    func testPollingSurvivesDroppedConnections() async throws {
+        let (a, t) = auth([
+            .init(status: 200, body: codeJSON),
+            .init(status: 0, body: "", failWithNetworkError: true),
+            .init(status: 0, body: "", failWithNetworkError: true),
+            .init(status: 200, body: #"{"access_token":"gho_ok","token_type":"bearer"}"#),
+        ])
+        let code = try await a.start(scope: "repo")
+        let token = try await a.pollForToken(code)
+        XCTAssertEqual(token, "gho_ok")
+        XCTAssertEqual(t.requests.count, 4)
+    }
+
+    func testPollingGivesUpAfterRepeatedNetworkFailures() async throws {
+        let fails = Array(repeating: MockTransport.Stub(status: 0, body: "", failWithNetworkError: true), count: 3)
+        let (a, _) = auth([.init(status: 200, body: codeJSON)] + fails)
+        let code = try await a.start(scope: "repo")
+        do { _ = try await a.pollForToken(code, maxConsecutiveNetworkFailures: 3); XCTFail() }
+        catch { guard case AuthError.network = error else { return XCTFail("\(error)") } }
+    }
 }
