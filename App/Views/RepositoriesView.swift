@@ -11,27 +11,34 @@ struct RepositoriesView: View {
     var body: some View {
         List {
             if !app.isSignedIn {
-                ContentUnavailableView {
-                    Label("Not Connected to GitHub", systemImage: "person.crop.circle.badge.questionmark")
-                } description: {
-                    Text("Sign in from Settings to browse repositories. Local notes keep working without an account.")
+                Section {
+                    GitHubConnectView().listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
+                } footer: {
+                    Text("Local notes keep working without GitHub.")
                 }
             } else if repos.isEmpty {
                 ContentUnavailableView {
-                    Label("No Repositories", systemImage: "externaldrive")
-                } description: { Text("Add a repository to use it as a notes workspace or open its Markdown files as notes.") }
-                actions: { Button("Add Repository") { adding = true }.buttonStyle(.borderedProminent) }
+                    Label("Add a Repository", systemImage: "externaldrive.badge.plus")
+                } description: {
+                    Text("Pick a repository to browse its Markdown files and open them as notes.")
+                } actions: {
+                    Button("Choose Repository") { adding = true }.buttonStyle(.borderedProminent)
+                }
+                .listRowBackground(Color.clear)
             }
             ForEach(repos) { r in
                 NavigationLink { RepoDetailView(repo: r) } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack { Text(r.fullName).font(.headline); Image(systemName: r.isPrivate ? "lock" : "globe").font(.caption).foregroundStyle(.secondary) }
-                        Text("\(r.currentBranch)\(r.canPush ? "" : " · read-only")").font(.subheadline).foregroundStyle(.secondary)
+                    HStack(spacing: 12) {
+                        IconTile(symbol: r.isPrivate ? "lock.fill" : "book.closed.fill", color: r.isPrivate ? .orange : .indigo, size: 36)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(r.fullName).font(.headline)
+                            Text("\(r.currentBranch)\(r.canPush ? "" : " · read-only")").font(.subheadline).foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
         }
-        .navigationTitle("Repositories")
+        .navigationTitle("GitHub")
         .toolbar { Button { adding = true } label: { Image(systemName: "plus") }.disabled(!app.isSignedIn).accessibilityLabel("Add Repository") }
         .sheet(isPresented: $adding) { NavigationStack { RepoPickerView() } }
     }

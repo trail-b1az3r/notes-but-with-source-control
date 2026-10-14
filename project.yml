@@ -2,7 +2,7 @@ name: Notes
 options:
   bundleIdPrefix: app.notes
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "26.0"
   createIntermediateGroups: true
 configFiles:
   Debug: Config/Notes.xcconfig

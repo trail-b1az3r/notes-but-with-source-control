@@ -13,10 +13,11 @@ struct RootView: View {
             NavigationStack { FoldersView() }
                 .tabItem { Label("Folders", systemImage: "folder") }
             NavigationStack { RepositoriesView() }
-                .tabItem { Label("Repositories", systemImage: "externaldrive.connected.to.line.below") }
+                .tabItem { Label("GitHub", systemImage: "arrow.triangle.branch") }
             NavigationStack { SettingsView() }
                 .tabItem { Label("Settings", systemImage: "gearshape") }
         }
+        .tint(.indigo)
         .preferredColorScheme(appearance == 1 ? .light : appearance == 2 ? .dark : nil)
         .safeAreaInset(edge: .top, spacing: 0) {
             if !app.isOnline {
@@ -37,27 +38,35 @@ struct RootView: View {
 
 struct OnboardingView: View {
     var done: () -> Void
+    @State private var connecting = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 28) {
             Spacer()
-            Text("Notes:").font(.largeTitle.bold())
-            Text("Apple Notes, with source control built in.").font(.title3).foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 18) {
-                row("iphone", "Start with local notes", "Everything stays on this device. No account needed.")
-                row("person.crop.circle.badge.checkmark", "Connect GitHub", "Link a note to a file in any repository you can access. Sign in from Settings whenever you like.")
-                row("externaldrive.connected.to.line.below", "Use a repository as a workspace", "Browse a repo, open Markdown files as notes, and commit your edits.")
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Welcome to nbwsc").font(.largeTitle.bold())
+                Text("Notes with source control built in.").font(.title3).foregroundStyle(.secondary)
             }
-            Text("Nothing is published to GitHub unless you choose to.").font(.footnote).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 22) {
+                row("iphone", .blue, "Start writing", "Notes stay on this device. No account needed.")
+                row("arrow.triangle.branch", .indigo, "Connect GitHub", "Open Markdown files from your repositories and commit your edits.")
+                row("clock.arrow.circlepath", .green, "Never lose work", "Every edit is saved locally, with history and conflict protection.")
+            }
             Spacer()
-            Button(action: done) { Text("Get Started").frame(maxWidth: .infinity).padding(.vertical, 6) }
-                .buttonStyle(.borderedProminent)
+            VStack(spacing: 12) {
+                Button(action: done) { Text("Start with Local Notes").font(.headline).frame(maxWidth: .infinity) }
+                    .buttonStyle(.borderedProminent).controlSize(.large)
+                Button { connecting = true } label: { Text("Connect GitHub First").frame(maxWidth: .infinity) }
+                    .buttonStyle(.bordered).controlSize(.large)
+                Text("Nothing is ever published to GitHub unless you choose to.").font(.footnote).foregroundStyle(.secondary)
+            }
         }
-        .padding(24)
+        .padding(28)
+        .sheet(isPresented: $connecting) { ConnectSheet() }
     }
-    private func row(_ icon: String, _ title: String, _ detail: String) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: icon).font(.title2).foregroundStyle(.tint).frame(width: 34)
-            VStack(alignment: .leading, spacing: 2) {
+    private func row(_ icon: String, _ color: Color, _ title: String, _ detail: String) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            IconTile(symbol: icon, color: color, size: 44)
+            VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.headline)
                 Text(detail).font(.subheadline).foregroundStyle(.secondary)
             }

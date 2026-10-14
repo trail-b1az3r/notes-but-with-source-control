@@ -23,6 +23,9 @@ struct NotesListView: View {
     var titleOverride: String?
     @Environment(\.modelContext) private var context
     @Environment(SyncService.self) private var sync
+    @Environment(AppModel.self) private var app
+    @AppStorage("dismissedConnectBanner") private var dismissedConnect = false
+    @State private var showConnect = false
     @Query private var allNotes: [Note]
     @AppStorage("sortOrder") private var sortRaw = SortOrder.modified.rawValue
     @AppStorage("showPreviews") private var showPreviews = true
@@ -72,6 +75,7 @@ struct NotesListView: View {
         let list = notes
         let pinned = list.filter(\.isPinned), rest = list.filter { !$0.isPinned }
         List(selection: $selection) {
+            if !app.isSignedIn, !dismissedConnect, filter == .all, search.isEmpty { connectBanner }
             if list.isEmpty { emptyState }
             if !pinned.isEmpty, filter != .pinned {
                 Section("Pinned") { ForEach(pinned) { row($0) } }
@@ -126,15 +130,42 @@ struct NotesListView: View {
             try? context.save()
         }
         .sheet(isPresented: $showPending) { NavigationStack { PendingChangesView() } }
+        .sheet(isPresented: $showConnect) { ConnectSheet() }
+        .refreshable { await sync.syncAll() }
+        .sensoryFeedback(.impact(weight: .light), trigger: allNotes.count)
+    }
+
+    private var connectBanner: some View {
+        Section {
+            HStack(spacing: 12) {
+                IconTile(symbol: "arrow.triangle.branch", color: .indigo, size: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Connect GitHub").font(.headline)
+                    Text("Keep notes in your repositories, with history.").font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 4)
+                Button { withAnimation { dismissedConnect = true } } label: { Image(systemName: "xmark").font(.footnote.bold()).foregroundStyle(.secondary) }
+                    .buttonStyle(.borderless).accessibilityLabel("Dismiss")
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { showConnect = true }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+        }
     }
 
     private var currentFolder: UUID? { if case .folder(let id) = filter { return id } else { return nil } }
 
     @ViewBuilder private var emptyState: some View {
+        let first = filter == .all && search.isEmpty
         ContentUnavailableView {
-            Label(filter == .all && search.isEmpty ? "No Notes" : "Nothing Here", systemImage: "note.text")
+            Label(first ? "No Notes Yet" : "Nothing Here", systemImage: search.isEmpty ? "note.text" : "magnifyingglass")
         } description: {
-            Text(search.isEmpty ? "Tap the compose button to write your first note. Notes stay on this device unless you link them to GitHub." : "No notes match “\(search)”. Results cover notes on this device.")
+            Text(first ? "Write your first note. It stays on this device unless you link it to GitHub."
+                 : search.isEmpty ? "Notes you add here will show up in this list."
+                 : "No notes match “\(search)”. Search covers notes on this device.")
+        } actions: {
+            if first { Button("New Note", systemImage: "square.and.pencil") { newNote() }.buttonStyle(.borderedProminent) }
         }
         .listRowBackground(Color.clear)
     }
@@ -176,23 +207,25 @@ struct NoteRow: View {
     let note: Note
     var showPreview = true
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack {
-                if note.isPinned { Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.orange) }
-                Text(note.title).font(.headline).lineLimit(1)
-                Spacer(minLength: 4)
-                SyncBadge(note: note)
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
+                    if note.isPinned { Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.orange) }
+                    Text(note.title).font(.headline).lineLimit(1)
+                }
+                HStack(spacing: 6) {
+                    Text(note.modifiedAt, format: .relative(presentation: .named)).foregroundStyle(.secondary).layoutPriority(1)
+                    if showPreview, !note.preview.isEmpty { Text(note.preview).foregroundStyle(.tertiary).lineLimit(1) }
+                }.font(.subheadline)
+                if let repo = note.repoFullName, let path = note.path {
+                    Label("\(repo) · \(path)", systemImage: "arrow.triangle.branch")
+                        .font(.caption).foregroundStyle(.indigo).lineLimit(1)
+                }
             }
-            HStack(spacing: 6) {
-                Text(note.modifiedAt, format: .relative(presentation: .named)).foregroundStyle(.secondary)
-                if showPreview, !note.preview.isEmpty { Text(note.preview).foregroundStyle(.secondary).lineLimit(1) }
-            }.font(.subheadline)
-            if let repo = note.repoFullName, let path = note.path {
-                Label("\(repo)/\(path)", systemImage: "arrow.triangle.branch")
-                    .font(.caption).foregroundStyle(.tertiary).lineLimit(1)
-            }
+            Spacer(minLength: 4)
+            SyncBadge(note: note)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
         .accessibilityElement(children: .combine)
     }
 }
@@ -202,10 +235,11 @@ struct SyncBadge: View {
     var body: some View {
         switch note.syncStatus {
         case .local: EmptyView()
-        case .synced: Image(systemName: "checkmark.circle").foregroundStyle(.secondary).accessibilityLabel("Synced")
-        case .modified, .newFile: Image(systemName: "circle.fill").font(.caption2).foregroundStyle(.orange).accessibilityLabel("Pending changes")
-        case .conflict: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red).accessibilityLabel("Conflict")
-        case .remoteDeleted: Image(systemName: "questionmark.folder").foregroundStyle(.red).accessibilityLabel("Deleted on GitHub")
+        case .synced: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green.opacity(0.8)).accessibilityLabel("Synced")
+        case .modified: Pill(text: "Pending", color: .orange)
+        case .newFile: Pill(text: "New", color: .blue)
+        case .conflict: Pill(text: "Conflict", symbol: "exclamationmark.triangle.fill", color: .red)
+        case .remoteDeleted: Pill(text: "Deleted", symbol: "questionmark.folder", color: .red)
         }
     }
 }

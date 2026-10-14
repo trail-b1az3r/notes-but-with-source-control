@@ -15,7 +15,7 @@ public enum AuthError: Error, Equatable, Sendable {
     case notConfigured, expired, denied, deviceFlowDisabled, network(String), unexpected(String)
     public var userMessage: String {
         switch self {
-        case .notConfigured: return "GitHub sign-in isn't configured in this build. Set GITHUB_CLIENT_ID (see docs/GITHUB_SETUP.md)."
+        case .notConfigured: return "GitHub sign-in needs a one-time setup: add your GitHub app's Client ID."
         case .expired: return "The sign-in code expired. Start again."
         case .denied: return "Authorization was declined on GitHub."
         case .deviceFlowDisabled: return "Device flow isn't enabled for this GitHub OAuth app. Enable it in the app's settings on GitHub."

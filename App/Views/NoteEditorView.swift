@@ -98,7 +98,10 @@ struct NoteEditorView: View {
                 else if note.hasPendingChanges { Label("Pending", systemImage: "circle.fill").labelStyle(.titleAndIcon).foregroundStyle(.orange) }
                 else { Label("Synced", systemImage: "checkmark").foregroundStyle(.secondary) }
             }
-            .font(.caption).padding(.horizontal).padding(.vertical, 6).background(.bar)
+            .font(.caption).padding(.horizontal, 12).padding(.vertical, 7)
+            .background(Color(.secondarySystemBackground), in: Capsule())
+            .padding(.horizontal).padding(.top, 4)
+            .contentShape(Capsule())
             .onTapGesture { sheet = .details }
             if let e = note.lastSyncError {
                 Text(e).font(.caption).foregroundStyle(.red).padding(.horizontal).frame(maxWidth: .infinity, alignment: .leading)

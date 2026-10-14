@@ -33,7 +33,7 @@ concurrency:
 
 jobs:
   release:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     env:
       GITHUB_CLIENT_ID_VALUE: ${{ vars.NOTES_GITHUB_CLIENT_ID }}
@@ -87,8 +87,11 @@ jobs:
             echo "::warning title=GitHub sign-in not configured::NOTES_GITHUB_CLIENT_ID is not set, so this build has no GitHub sign-in. Run scripts/setup-github.sh (see docs/GITHUB_SETUP.md)."
           fi
 
+      - name: Select newest Xcode
+        run: scripts/select-xcode.sh
+
       - name: Toolchain
-        run: xcodebuild -version && swift --version
+        run: swift --version
 
       - name: Unit tests (NotesCore)
         run: swift test --package-path Packages/NotesCore
@@ -117,6 +120,7 @@ jobs:
             -destination 'generic/platform=iOS' -archivePath build/Notes.xcarchive \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             APP_BUNDLE_ID="$BUNDLE_ID" GITHUB_CLIENT_ID="$GITHUB_CLIENT_ID_VALUE" \
+            IPHONEOS_DEPLOYMENT_TARGET="$DEPLOY_TARGET" \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
           rm -rf build/ipa && mkdir -p build/ipa/Payload
           cp -R build/Notes.xcarchive/Products/Applications/Notes.app build/ipa/Payload/
@@ -163,6 +167,7 @@ jobs:
             CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_IDENTITY="$IDENTITY" \
             PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
             APP_BUNDLE_ID="$BUNDLE_ID" GITHUB_CLIENT_ID="$GITHUB_CLIENT_ID_VALUE" \
+            IPHONEOS_DEPLOYMENT_TARGET="$DEPLOY_TARGET" \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
           cat > build/ExportOptions.plist <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
