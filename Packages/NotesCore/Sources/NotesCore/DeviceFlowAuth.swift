@@ -67,16 +67,27 @@ public struct DeviceFlowAuth: Sendable {
     }
 
     /// Polls until the user authorizes. Returns the access token. Honors `slow_down` and cancellation.
-    public func pollForToken(_ code: DeviceCode) async throws -> String {
+    /// Network errors are treated as transient: iOS drops connections while the app is in the background
+    /// (the user is on github.com approving the code), so the request is simply retried.
+    public func pollForToken(_ code: DeviceCode, maxConsecutiveNetworkFailures: Int = 12) async throws -> String {
         var interval = TimeInterval(code.interval)
+        var failures = 0
         let deadline = Date().addingTimeInterval(TimeInterval(code.expiresIn))
         while Date() < deadline {
             await sleep(interval)
             try Task.checkCancellation()
-            let o = try await post("https://github.com/login/oauth/access_token", [
-                "client_id": clientID, "device_code": code.deviceCode,
-                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-            ])
+            let o: [String: Any]
+            do {
+                o = try await post("https://github.com/login/oauth/access_token", [
+                    "client_id": clientID, "device_code": code.deviceCode,
+                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                ])
+                failures = 0
+            } catch AuthError.network(let message) {
+                failures += 1
+                if failures >= maxConsecutiveNetworkFailures { throw AuthError.network(message) }
+                continue
+            }
             if let token = o["access_token"] as? String { return token }
             switch o["error"] as? String {
             case "authorization_pending": continue
